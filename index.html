@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Interval Timer</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #2b1d12;
+    background-image: radial-gradient(circle at 50% 0%, #3a2818 0%, #2b1d12 55%, #1c120a 100%);
+    color: #ede4d3;
+    font-family: "Georgia", "Segoe UI", serif;
+    transition: background 0.6s ease;
+  }
+  body.work { background-image: radial-gradient(circle at 50% 0%, #4a3320 0%, #2b1d12 55%, #1c120a 100%); }
+  body.rest { background-image: radial-gradient(circle at 50% 0%, #2f3a22 0%, #232b18 55%, #161c0e 100%); }
+
+  .card {
+    text-align: center;
+    padding: 40px;
+    width: 340px;
+    max-width: 92vw;
+  }
+  .leaf { font-size: 30px; opacity: 0.8; }
+  .phase {
+    font-size: 15px;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: #b89b6e;
+    margin: 14px 0 6px;
+    min-height: 18px;
+  }
+  .time {
+    font-size: 92px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+    margin: 8px 0 30px;
+  }
+  .controls { display: flex; gap: 12px; justify-content: center; margin-bottom: 34px; }
+  button {
+    border: 1px solid #6b5436;
+    border-radius: 30px;
+    padding: 12px 26px;
+    font-size: 15px;
+    font-family: inherit;
+    cursor: pointer;
+    color: #ede4d3;
+    background: #4a3724;
+    transition: background 0.15s, transform 0.05s;
+  }
+  button:hover { background: #5c4630; }
+  button:active { transform: scale(0.96); }
+  button.on { background: #6b7a3a; border-color: #8a9a4e; }
+  button.on:hover { background: #7a8a45; }
+
+  .settings { display: flex; gap: 18px; }
+  .field { flex: 1; }
+  .field label {
+    display: block;
+    font-size: 12px;
+    color: #b89b6e;
+    margin-bottom: 6px;
+    letter-spacing: 1px;
+  }
+  .field input {
+    width: 100%;
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid #6b5436;
+    background: #241710;
+    color: #ede4d3;
+    font-size: 17px;
+    text-align: center;
+    font-family: inherit;
+  }
+  .field input:focus { outline: none; border-color: #b89b6e; }
+  .field input::-webkit-outer-spin-button,
+  .field input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  .field input[type=number] { -moz-appearance: textfield; appearance: textfield; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="leaf">🌿</div>
+    <div class="time" id="time">25:00</div>
+
+    <div class="controls">
+      <button id="startBtn">Start</button>
+      <button id="resetBtn">Reset</button>
+      <button id="loopBtn" class="on" title="Loop">↻</button>
+    </div>
+
+    <div class="settings">
+      <div class="field">
+        <input type="number" id="workMin" min="1" value="25">
+      </div>
+      <div class="field">
+        <input type="number" id="restMin" min="1" value="5">
+      </div>
+    </div>
+  </div>
+
+<script>
+  const timeEl = document.getElementById('time');
+  const startBtn = document.getElementById('startBtn');
+  const resetBtn = document.getElementById('resetBtn');
+  const loopBtn = document.getElementById('loopBtn');
+  const workMin = document.getElementById('workMin');
+  const restMin = document.getElementById('restMin');
+
+  const bell = new Audio('bowl.mp3');
+
+  let phase = 'work';
+  let remaining = 25 * 60;
+  let running = false;
+  let loop = true;
+  let intervalId = null;
+
+  const workSecs = () => Math.max(1, parseInt(workMin.value) || 25) * 60;
+  const restSecs = () => Math.max(1, parseInt(restMin.value) || 5) * 60;
+
+  function format(s) {
+    return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
+  }
+
+  function render() {
+    timeEl.textContent = format(remaining);
+    document.title = running ? format(remaining) + ' · ' + (phase === 'work' ? 'Work' : 'Rest') : 'Interval Timer';
+    document.body.classList.toggle('work', running && phase === 'work');
+    document.body.classList.toggle('rest', running && phase === 'rest');
+  }
+
+  function ring() {
+    bell.currentTime = 0;
+    bell.play().catch(() => {});
+  }
+
+  function tick() {
+    if (remaining > 0) {
+      remaining--;
+    } else {
+      const finishedRest = phase === 'rest';
+      // Stop after a full work+rest cycle when looping is off.
+      if (finishedRest && !loop) { ring(); reset(); return; }
+      ring();   // work ending / starting
+      phase = phase === 'work' ? 'rest' : 'work';
+      remaining = phase === 'work' ? workSecs() : restSecs();
+    }
+    render();
+  }
+
+  function start() {
+    running = true;
+    startBtn.textContent = 'Pause';
+    workMin.disabled = restMin.disabled = true;
+    intervalId = setInterval(tick, 1000);
+    render();
+  }
+
+  function pause() {
+    running = false;
+    startBtn.textContent = 'Resume';
+    clearInterval(intervalId);
+    render();
+  }
+
+  function reset() {
+    running = false;
+    clearInterval(intervalId);
+    phase = 'work';
+    remaining = workSecs();
+    startBtn.textContent = 'Start';
+    workMin.disabled = restMin.disabled = false;
+    render();
+  }
+
+  startBtn.addEventListener('click', () => running ? pause() : start());
+  resetBtn.addEventListener('click', reset);
+  loopBtn.addEventListener('click', () => { loop = !loop; loopBtn.classList.toggle('on', loop); });
+  workMin.addEventListener('input', () => { if (!running) { remaining = workSecs(); render(); } });
+
+  render();
+</script>
+</body>
+</html>
