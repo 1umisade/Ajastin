@@ -158,6 +158,7 @@
 
   function start() {
     running = true;
+    if (phase === 'work') ring();   // chime when work begins
     startBtn.textContent = 'Pause';
     workMin.disabled = restMin.disabled = true;
     intervalId = setInterval(tick, 1000);
